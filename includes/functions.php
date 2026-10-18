@@ -165,35 +165,49 @@ function getPitchMainImage($sanBongId, $cumSanId = null, $pdo = null) {
         $pdo = getDBConnection();
     }
 
-    // 1. Ảnh chính của sân bóng
+    $sanBongId = (int)$sanBongId;
+
+    // 1. Ảnh đại diện lưu trực tiếp trong trường hinh_anh_dai_dien của bảng san_bong
     if ($sanBongId > 0) {
+        try {
+            $stmt = $pdo->prepare("SELECT hinh_anh_dai_dien FROM san_bong WHERE id = ?");
+            $stmt->execute([$sanBongId]);
+            $avatar = $stmt->fetchColumn();
+            if (!empty($avatar)) {
+                return getImageUrl($avatar);
+            }
+        } catch (Exception $e) {
+            // Bỏ qua nếu cột chưa tồn tại
+        }
+
+        // 2. Ảnh chính của sân bóng trong hinh_anh_san
         $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE san_bong_id = ? AND la_anh_chinh = 1 LIMIT 1");
         $stmt->execute([$sanBongId]);
         $img = $stmt->fetchColumn();
         if ($img) return getImageUrl($img);
 
-        // 2. Ảnh bất kỳ của sân bóng
+        // 3. Ảnh bất kỳ của sân bóng
         $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE san_bong_id = ? ORDER BY id DESC LIMIT 1");
         $stmt->execute([$sanBongId]);
         $img = $stmt->fetchColumn();
         if ($img) return getImageUrl($img);
     }
 
-    // 3. Ảnh chính của cụm sân
+    // 4. Ảnh chính của cụm sân
     if ($cumSanId) {
         $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE cum_san_id = ? AND la_anh_chinh = 1 LIMIT 1");
         $stmt->execute([$cumSanId]);
         $img = $stmt->fetchColumn();
         if ($img) return getImageUrl($img);
 
-        // 4. Ảnh bất kỳ của cụm sân
+        // 5. Ảnh bất kỳ của cụm sân
         $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE cum_san_id = ? ORDER BY id DESC LIMIT 1");
         $stmt->execute([$cumSanId]);
         $img = $stmt->fetchColumn();
         if ($img) return getImageUrl($img);
     }
 
-    // 5. Ảnh dự phòng chất lượng cao về sân bóng đá
+    // 6. Ảnh dự phòng chất lượng cao về sân bóng đá
     return 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=800&q=80';
 }
 
@@ -236,6 +250,35 @@ function getPitchGallery($sanBongId, $cumSanId = null, $pdo = null) {
             $stmt->execute([$sanBongId]);
         }
         $list = $stmt->fetchAll();
+
+        // Kiểm tra ảnh đại diện trực tiếp trong san_bong nếu chưa có trong list
+        if ($sanBongId > 0) {
+            try {
+                $pStmt = $pdo->prepare("SELECT hinh_anh_dai_dien FROM san_bong WHERE id = ?");
+                $pStmt->execute([$sanBongId]);
+                $avatar = $pStmt->fetchColumn();
+                if (!empty($avatar)) {
+                    $found = false;
+                    foreach ($list as $item) {
+                        if ($item['url_hinh_anh'] === $avatar) {
+                            $found = true;
+                            break;
+                        }
+                    }
+                    if (!$found) {
+                        array_unshift($list, [
+                            'id' => 0,
+                            'san_bong_id' => $sanBongId,
+                            'cum_san_id' => $cumSanId,
+                            'url_hinh_anh' => $avatar,
+                            'la_anh_chinh' => 1
+                        ]);
+                    }
+                }
+            } catch (Exception $e) {
+                // Ignore
+            }
+        }
 
         if (empty($list)) {
             return $defaultFallback;

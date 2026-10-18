@@ -17,7 +17,10 @@ $loaiSanList = $pdo->query("SELECT * FROM loai_san ORDER BY id ASC")->fetchAll()
 
 // Lấy danh sách sân bóng nổi bật (đang Hoạt động)
 $featuredPitches = $pdo->query("
-    SELECT s.*, c.ten_cum_san, c.dia_chi, l.ten_loai 
+    SELECT s.*, c.ten_cum_san, 
+           COALESCE(NULLIF(s.dia_chi, ''), c.dia_chi) AS dia_chi, 
+           COALESCE(NULLIF(s.link_google_map, ''), c.link_google_map) AS link_google_map,
+           l.ten_loai 
     FROM san_bong s
     JOIN cum_san c ON s.cum_san_id = c.id
     JOIN loai_san l ON s.loai_san_id = l.id
@@ -28,7 +31,10 @@ $featuredPitches = $pdo->query("
 
 // Lấy danh sách sân 5 người
 $pitches5 = $pdo->query("
-    SELECT s.*, c.ten_cum_san, c.dia_chi, l.ten_loai 
+    SELECT s.*, c.ten_cum_san, 
+           COALESCE(NULLIF(s.dia_chi, ''), c.dia_chi) AS dia_chi, 
+           COALESCE(NULLIF(s.link_google_map, ''), c.link_google_map) AS link_google_map,
+           l.ten_loai 
     FROM san_bong s
     JOIN cum_san c ON s.cum_san_id = c.id
     JOIN loai_san l ON s.loai_san_id = l.id
@@ -38,7 +44,10 @@ $pitches5 = $pdo->query("
 
 // Lấy danh sách sân 7 người
 $pitches7 = $pdo->query("
-    SELECT s.*, c.ten_cum_san, c.dia_chi, l.ten_loai 
+    SELECT s.*, c.ten_cum_san, 
+           COALESCE(NULLIF(s.dia_chi, ''), c.dia_chi) AS dia_chi, 
+           COALESCE(NULLIF(s.link_google_map, ''), c.link_google_map) AS link_google_map,
+           l.ten_loai 
     FROM san_bong s
     JOIN cum_san c ON s.cum_san_id = c.id
     JOIN loai_san l ON s.loai_san_id = l.id

@@ -37,8 +37,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($laAnhChinh === 1) {
                     if ($sanBongId) {
                         $pdo->prepare("UPDATE hinh_anh_san SET la_anh_chinh = 0 WHERE san_bong_id = ?")->execute([$sanBongId]);
+                        $pdo->prepare("UPDATE san_bong SET hinh_anh_dai_dien = ? WHERE id = ?")->execute([$urlHinhAnh, $sanBongId]);
                     } elseif ($cumSanId) {
                         $pdo->prepare("UPDATE hinh_anh_san SET la_anh_chinh = 0 WHERE cum_san_id = ?")->execute([$cumSanId]);
+                        $pdo->prepare("UPDATE cum_san SET hinh_anh_dai_dien = ? WHERE id = ?")->execute([$urlHinhAnh, $cumSanId]);
                     }
                 }
 
@@ -63,8 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($cur) {
                     if ($cur['san_bong_id']) {
                         $pdo->prepare("UPDATE hinh_anh_san SET la_anh_chinh = 0 WHERE san_bong_id = ?")->execute([$cur['san_bong_id']]);
+                        $pdo->prepare("UPDATE san_bong SET hinh_anh_dai_dien = ? WHERE id = ?")->execute([$cur['url_hinh_anh'], $cur['san_bong_id']]);
                     } elseif ($cur['cum_san_id']) {
                         $pdo->prepare("UPDATE hinh_anh_san SET la_anh_chinh = 0 WHERE cum_san_id = ?")->execute([$cur['cum_san_id']]);
+                        $pdo->prepare("UPDATE cum_san SET hinh_anh_dai_dien = ? WHERE id = ?")->execute([$cur['url_hinh_anh'], $cur['cum_san_id']]);
                     }
                     $pdo->prepare("UPDATE hinh_anh_san SET la_anh_chinh = 1 WHERE id = ?")->execute([$id]);
                     setFlash('success', "Đã đặt ảnh #{$id} làm ảnh chính!");

@@ -19,7 +19,10 @@ $selectedEnd     = sanitize($_GET['gio_ket_thuc'] ?? '18:30');
 
 // Lấy danh sách tất cả các sân đang Hoạt động kèm thông tin cụm sân
 $pitchList = $pdo->query("
-    SELECT s.*, c.ten_cum_san, l.ten_loai 
+    SELECT s.*, c.ten_cum_san, 
+           COALESCE(NULLIF(s.dia_chi, ''), c.dia_chi) AS dia_chi, 
+           COALESCE(NULLIF(s.link_google_map, ''), c.link_google_map) AS link_google_map,
+           l.ten_loai 
     FROM san_bong s
     JOIN cum_san c ON s.cum_san_id = c.id
     JOIN loai_san l ON s.loai_san_id = l.id

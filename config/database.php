@@ -50,6 +50,68 @@ if ($isLocal) {
 }
 
 /**
+ * Tự động đồng bộ và bảo đảm cấu trúc bảng san_bong (bổ sung an toàn các cột còn thiếu)
+ * @param PDO $pdo
+ */
+function ensureDatabaseSchemaSynced($pdo) {
+    static $checked = false;
+    if ($checked) return;
+    $checked = true;
+
+    try {
+        $cols = $pdo->query("SHOW COLUMNS FROM san_bong")->fetchAll(PDO::FETCH_COLUMN);
+        if (empty($cols)) return;
+
+        $needsDiaChi = !in_array('dia_chi', $cols);
+        $needsLinkMap = !in_array('link_google_map', $cols);
+        $needsAvatar = !in_array('hinh_anh_dai_dien', $cols);
+
+        if ($needsDiaChi) {
+            $pdo->exec("ALTER TABLE `san_bong` ADD COLUMN `dia_chi` VARCHAR(255) DEFAULT NULL AFTER `ten_san`");
+        }
+        if ($needsLinkMap) {
+            $pdo->exec("ALTER TABLE `san_bong` ADD COLUMN `link_google_map` TEXT DEFAULT NULL AFTER `dia_chi`");
+        }
+        if ($needsAvatar) {
+            $pdo->exec("ALTER TABLE `san_bong` ADD COLUMN `hinh_anh_dai_dien` VARCHAR(255) DEFAULT NULL AFTER `link_google_map`");
+        }
+
+        if ($needsDiaChi || $needsLinkMap) {
+            $pdo->exec("
+                UPDATE san_bong s JOIN cum_san c ON s.cum_san_id = c.id
+                SET s.dia_chi = CASE WHEN (s.dia_chi IS NULL OR s.dia_chi = '') THEN c.dia_chi ELSE s.dia_chi END,
+                    s.link_google_map = CASE WHEN (s.link_google_map IS NULL OR s.link_google_map = '') THEN c.link_google_map ELSE s.link_google_map END
+            ");
+        }
+
+        if ($needsAvatar) {
+            $pdo->exec("
+                UPDATE san_bong s 
+                JOIN (
+                    SELECT san_bong_id, url_hinh_anh 
+                    FROM hinh_anh_san 
+                    WHERE san_bong_id IS NOT NULL AND la_anh_chinh = 1
+                ) h ON s.id = h.san_bong_id
+                SET s.hinh_anh_dai_dien = h.url_hinh_anh
+                WHERE s.hinh_anh_dai_dien IS NULL OR s.hinh_anh_dai_dien = ''
+            ");
+            $pdo->exec("
+                UPDATE san_bong s
+                JOIN (
+                    SELECT cum_san_id, url_hinh_anh 
+                    FROM hinh_anh_san 
+                    WHERE cum_san_id IS NOT NULL AND la_anh_chinh = 1
+                ) h ON s.cum_san_id = h.cum_san_id
+                SET s.hinh_anh_dai_dien = h.url_hinh_anh
+                WHERE s.hinh_anh_dai_dien IS NULL OR s.hinh_anh_dai_dien = ''
+            ");
+        }
+    } catch (Exception $e) {
+        error_log('Database schema check notice: ' . $e->getMessage());
+    }
+}
+
+/**
  * Khởi tạo và trả về kết nối PDO (Singleton)
  * @return PDO
  * @throws PDOException
@@ -75,6 +137,7 @@ function getDBConnection() {
 
         try {
             $pdoInstance = new PDO($dsn, DB_USER, DB_PASS, $options);
+            ensureDatabaseSchemaSynced($pdoInstance);
         } catch (PDOException $e) {
             error_log('Database Connection Error: ' . $e->getMessage());
             die(

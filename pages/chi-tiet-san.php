@@ -19,7 +19,10 @@ if ($pitchId > 0) {
         // Lấy thông tin sân, cụm sân và loại sân an toàn với tham số truyền vào
         $stmt = $pdo->prepare("
             SELECT s.*, 
-                   c.ten_cum_san, c.dia_chi, c.kinh_do, c.vi_do, c.link_google_map, 
+                   c.ten_cum_san, 
+                   COALESCE(NULLIF(s.dia_chi, ''), c.dia_chi) AS dia_chi, 
+                   c.kinh_do, c.vi_do, 
+                   COALESCE(NULLIF(s.link_google_map, ''), c.link_google_map) AS link_google_map, 
                    c.gio_mo_cua, c.gio_dong_cua, c.so_dien_thoai_lien_he,
                    l.ten_loai, l.gia_co_ban_thang_gio
             FROM san_bong s
