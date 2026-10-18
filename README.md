@@ -174,3 +174,5 @@ Hệ thống đã có sẵn tài khoản Quản trị viên (Admin):
 | Lỗi xung đột cổng 80 Apache | Ứng dụng khác (Skype, IIS...) chiếm cổng | Đổi cổng Apache sang `8080` trong `httpd.conf` của XAMPP, khi đó truy cập `http://localhost:8080/bongda16h/`. |
 | Quên mật khẩu Admin | Tài khoản bị đổi mật khẩu | Chạy file `database/seed_admin.php` hoặc cập nhật hash mật khẩu mới trong phpMyAdmin. |
 
+
+<!-- test-auto-push: verified 2026-10-19 00:26:25 -->
