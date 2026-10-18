@@ -38,8 +38,8 @@ if ($isLocal) {
     // Điền chính xác các thông số trong mục "MySQL Details" của InfinityFree:
     if (!defined('DB_HOST')) define('DB_HOST', 'sql302.infinityfree.com');        // MySQL Host của bạn trên InfinityFree
     if (!defined('DB_PORT')) define('DB_PORT', '3306');
-    if (!defined('DB_NAME')) define('DB_NAME', 'tên_database_trên_hosting');     // VD: if0_38000000_bongda16h
-    if (!defined('DB_USER')) define('DB_USER', 'tên_user_trên_hosting');         // VD: if0_38000000
+    if (!defined('DB_NAME')) define('DB_NAME', 'if0_43184594_datsan');            // Database của bạn trên InfinityFree
+    if (!defined('DB_USER')) define('DB_USER', 'if0_43184594');                   // User MySQL trên InfinityFree
     if (!defined('DB_PASS')) define('DB_PASS', 'mật_khẩu_hosting_của_bạn');     // Mật khẩu tài khoản hosting (vPanel)
     if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
 

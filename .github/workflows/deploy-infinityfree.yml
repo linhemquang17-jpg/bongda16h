@@ -10,27 +10,81 @@ jobs:
     name: Deploy to InfinityFree
     runs-on: ubuntu-latest
     steps:
-      - name: 🚚 Lay ma nguon moi nhat tu GitHub
+      - name: Lay ma nguon moi nhat tu GitHub
         uses: actions/checkout@v4
         with:
           fetch-depth: 2
 
-      - name: 📁 Dong bo code len Hosting InfinityFree qua FTP
+      - name: Kiem tra cau hinh GitHub Secrets truoc khi ket noi
+        env:
+          CHECK_SERVER: ${{ secrets.FTP_SERVER }}
+          CHECK_USER: ${{ secrets.FTP_USERNAME }}
+          CHECK_PASS: ${{ secrets.FTP_PASSWORD }}
+        run: |
+          echo "=================================================="
+          echo "Kiem tra cac GitHub Secrets can thiet cho FTP Deploy"
+          echo "=================================================="
+          
+          HAS_ERROR=0
+          
+          if [ -z "$CHECK_USER" ]; then
+            echo "::error::Thieu Secret 'FTP_USERNAME'. Vui long vao Settings -> Secrets and variables -> Actions va them secret 'FTP_USERNAME' (gia tri: if0_43184594)."
+            HAS_ERROR=1
+          else
+            echo "[OK] Da tim thay Secret 'FTP_USERNAME'."
+          fi
+          
+          if [ -z "$CHECK_PASS" ]; then
+            echo "::error::Thieu Secret 'FTP_PASSWORD'. Vui long them secret 'FTP_PASSWORD' (mat khau vPanel InfinityFree)."
+            HAS_ERROR=1
+          else
+            echo "[OK] Da tim thay Secret 'FTP_PASSWORD'."
+          fi
+          
+          if [ -z "$CHECK_SERVER" ]; then
+            echo "[INFO] Secret 'FTP_SERVER' chua dat, he thong se mac dinh su dung: 'ftpupload.net'."
+          elif [ "$CHECK_SERVER" = "sql302.infinityfree.com" ]; then
+            echo "::error::'sql302.infinityfree.com' la MySQL Hostname, KHONG PHAI FTP Hostname! FTP Hostname cua InfinityFree la 'ftpupload.net'."
+            HAS_ERROR=1
+          else
+            echo "[OK] Da tim thay Secret 'FTP_SERVER': $CHECK_SERVER"
+          fi
+          
+          if [ $HAS_ERROR -eq 1 ]; then
+            echo "=================================================="
+            echo "HUONG DAN KHAC PHUC:"
+            echo "1. Truy cap: https://github.com/linhemquang17-jpg/bongda16h/settings/secrets/actions"
+            echo "2. Bam 'New repository secret' de them cac secret con thieu."
+            echo "=================================================="
+            exit 1
+          fi
+          echo "[OK] Toan bo cau hinh hop le, bat dau ket noi FTP..."
+
+      - name: Dong bo code len Hosting InfinityFree qua FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server: ${{ secrets.FTP_SERVER }}       # VD: ftpupload.net
-          username: ${{ secrets.FTP_USERNAME }}   # VD: if0_38000000
-          password: ${{ secrets.FTP_PASSWORD }}   # Mat khau vPanel
-          server-dir: /htdocs/                    # Thu muc goc tren InfinityFree
+          server: ${{ secrets.FTP_SERVER || 'ftpupload.net' }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port: ${{ secrets.FTP_PORT || 21 }}
+          protocol: ${{ secrets.FTP_PROTOCOL || 'ftps' }}
+          security: loose
+          local-dir: ./
+          server-dir: ${{ secrets.FTP_SERVER_DIR || '/htdocs/' }}
+          dangerous-clean-slate: false
           exclude: |
             **/.git*
             **/.git*/**
             **/.github*/**
             **/.vscode*/**
             database/*.sql
+            *.sql
             *.zip
             *.rar
             *.bat
             README*.md
             .gitignore
             config/database.local.*
+            .env*
+            node_modules/**
+            vendor/**
