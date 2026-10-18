@@ -20,3 +20,4 @@
 // define('DB_NAME', 'if0_38000000_bongda16h');
 // define('DB_USER', 'if0_38000000');
 // define('DB_PASS', 'mat_khau_that_cua_ban');
+
