@@ -40,7 +40,7 @@ if ($isLocal) {
     if (!defined('DB_PORT')) define('DB_PORT', '3306');
     if (!defined('DB_NAME')) define('DB_NAME', 'if0_43184594_datsan');            // Database của bạn trên InfinityFree
     if (!defined('DB_USER')) define('DB_USER', 'if0_43184594');                   // User MySQL trên InfinityFree
-    if (!defined('DB_PASS')) define('DB_PASS', 'mật_khẩu_hosting_của_bạn');     // Mật khẩu tài khoản hosting (vPanel)
+    if (!defined('DB_PASS')) define('DB_PASS', 'linhnay123');                     // Mật khẩu tài khoản hosting InfinityFree
     if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
 
     if (!defined('BASE_URL')) {
