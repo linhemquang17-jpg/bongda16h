@@ -1,0 +1,36 @@
+name: Trien Khai Tu Dong Len InfinityFree (FTP)
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  web-deploy:
+    name: Deploy to InfinityFree
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🚚 Lay ma nguon moi nhat tu GitHub
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: 📁 Dong bo code len Hosting InfinityFree qua FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}       # VD: ftpupload.net
+          username: ${{ secrets.FTP_USERNAME }}   # VD: if0_38000000
+          password: ${{ secrets.FTP_PASSWORD }}   # Mat khau vPanel
+          server-dir: /htdocs/                    # Thu muc goc tren InfinityFree
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/.github*/**
+            **/.vscode*/**
+            database/*.sql
+            *.zip
+            *.rar
+            *.bat
+            README*.md
+            .gitignore
+            config/database.local.*

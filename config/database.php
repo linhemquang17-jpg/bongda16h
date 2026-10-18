@@ -12,17 +12,23 @@ if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
 // Tự động nhận diện môi trường: Localhost (XAMPP) hay Online (Hosting InfinityFree)
 $isLocal = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1']) || (php_sapi_name() === 'cli');
 
+// Nạp file cấu hình bảo mật riêng nếu có (file database.local.php nằm trong .gitignore, không bị đẩy lên Git)
+$localConfigFile = __DIR__ . '/database.local.php';
+if (file_exists($localConfigFile)) {
+    require_once $localConfigFile;
+}
+
 // ==============================================================================
 // 1. CẤU HÌNH THÔNG SỐ KẾT NỐI DATABASE
 // ==============================================================================
 if ($isLocal) {
     // --- CẤU HÌNH KHI CHẠY TRÊN XAMPP (MÁY TÍNH CỦA BẠN) ---
-    define('DB_HOST', '127.0.0.1');
-    define('DB_PORT', '3306');
-    define('DB_NAME', 'bongda16h');
-    define('DB_USER', 'root');
-    define('DB_PASS', '');
-    define('DB_CHARSET', 'utf8mb4');
+    if (!defined('DB_HOST')) define('DB_HOST', '127.0.0.1');
+    if (!defined('DB_PORT')) define('DB_PORT', '3306');
+    if (!defined('DB_NAME')) define('DB_NAME', 'bongda16h');
+    if (!defined('DB_USER')) define('DB_USER', 'root');
+    if (!defined('DB_PASS')) define('DB_PASS', '');
+    if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
 
     if (!defined('BASE_URL')) {
         define('BASE_URL', '/bongda16h');
@@ -30,12 +36,12 @@ if ($isLocal) {
 } else {
     // --- CẤU HÌNH KHI UPLOAD LÊN HOSTING INFINITYFREE ---
     // Điền chính xác các thông số trong mục "MySQL Details" của InfinityFree:
-    define('DB_HOST', 'sql302.infinityfree.com');        // MySQL Host của bạn trên InfinityFree
-    define('DB_PORT', '3306');
-    define('DB_NAME', 'tên_database_trên_hosting');     // VD: if0_38000000_bongda16h
-    define('DB_USER', 'tên_user_trên_hosting');         // VD: if0_38000000
-    define('DB_PASS', 'mật_khẩu_hosting_của_bạn');     // Mật khẩu tài khoản hosting (vPanel)
-    define('DB_CHARSET', 'utf8mb4');
+    if (!defined('DB_HOST')) define('DB_HOST', 'sql302.infinityfree.com');        // MySQL Host của bạn trên InfinityFree
+    if (!defined('DB_PORT')) define('DB_PORT', '3306');
+    if (!defined('DB_NAME')) define('DB_NAME', 'tên_database_trên_hosting');     // VD: if0_38000000_bongda16h
+    if (!defined('DB_USER')) define('DB_USER', 'tên_user_trên_hosting');         // VD: if0_38000000
+    if (!defined('DB_PASS')) define('DB_PASS', 'mật_khẩu_hosting_của_bạn');     // Mật khẩu tài khoản hosting (vPanel)
+    if (!defined('DB_CHARSET')) define('DB_CHARSET', 'utf8mb4');
 
     if (!defined('BASE_URL')) {
         // Trên hosting, nếu source code đặt thẳng trong thư mục htdocs thì để trống ''
@@ -63,7 +69,7 @@ function getDBConnection() {
         $options = [
             PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-            PDO::ATTR_EMULATE_PREPARES   => false,
+            PDO::ATTR_EMULATE_PREPARES   => true, // Kích hoạt chuẩn bị giả lập để tương thích tốt nhất trên hosting InfinityFree
             PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4 COLLATE utf8mb4_unicode_ci"
         ];
 

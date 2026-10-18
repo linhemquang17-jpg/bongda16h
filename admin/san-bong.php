@@ -67,25 +67,127 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setFlash('danger', 'Lỗi cập nhật: ' . $e->getMessage());
             }
         }
-    } elseif ($action === 'delete') {
+    } elseif ($action === 'change_avatar') {
         $id = (int)($_POST['id'] ?? 0);
-        if ($id > 0) {
-            // Kiểm tra xem sân đã có đơn đặt nào chưa
-            $chk = $pdo->prepare("SELECT COUNT(*) FROM dat_san WHERE san_bong_id = ?");
-            $chk->execute([$id]);
-            if ($chk->fetchColumn() > 0) {
-                setFlash('warning', 'Sân này đã có lịch sử đơn đặt sân, không thể xóa để đảm bảo toàn vẹn dữ liệu. Bạn có thể đổi trạng thái sang "Bảo trì"!');
-            } else {
-                try {
-                    // Xóa ảnh liên quan trước nếu có
-                    $pdo->prepare("DELETE FROM hinh_anh_san WHERE san_bong_id = ?")->execute([$id]);
-                    $pdo->prepare("DELETE FROM san_bong WHERE id = ?")->execute([$id]);
-                    setFlash('success', 'Xóa sân bóng thành công!');
-                } catch (Exception $e) {
-                    setFlash('danger', 'Lỗi khi xóa: ' . $e->getMessage());
-                }
-            }
+        $pitchStmt = $pdo->prepare("SELECT id, ten_san FROM san_bong WHERE id = ?");
+        $pitchStmt->execute([$id]);
+        $pitch = $pitchStmt->fetch();
+
+        if (!$pitch) {
+            setFlash('danger', 'Sân bóng không tồn tại!');
+            header('Location: ' . BASE_URL . '/admin/san-bong.php');
+            exit;
         }
+
+        if (!isset($_FILES['avatar']) || $_FILES['avatar']['error'] !== UPLOAD_ERR_OK) {
+            $errCode = $_FILES['avatar']['error'] ?? UPLOAD_ERR_NO_FILE;
+            $errMessages = [
+                UPLOAD_ERR_INI_SIZE   => 'Dung lượng file vượt quá giới hạn cấu hình của PHP (upload_max_filesize)!',
+                UPLOAD_ERR_FORM_SIZE  => 'Dung lượng file vượt quá giới hạn của form!',
+                UPLOAD_ERR_PARTIAL    => 'File mới chỉ được tải lên một phần!',
+                UPLOAD_ERR_NO_FILE    => 'Vui lòng chọn một file ảnh từ máy tính!',
+                UPLOAD_ERR_NO_TMP_DIR => 'Lỗi máy chủ: Thiếu thư mục tạm!',
+                UPLOAD_ERR_CANT_WRITE => 'Lỗi máy chủ: Không thể ghi file vào ổ đĩa!',
+                UPLOAD_ERR_EXTENSION  => 'Quá trình tải file bị chặn bởi extension máy chủ!'
+            ];
+            setFlash('danger', $errMessages[$errCode] ?? 'Vui lòng chọn file ảnh hợp lệ từ máy tính!');
+            header('Location: ' . BASE_URL . '/admin/san-bong.php');
+            exit;
+        }
+
+        // 1. Kiểm tra dung lượng file (tối đa 5MB)
+        $maxSize = 5 * 1024 * 1024;
+        if ($_FILES['avatar']['size'] > $maxSize) {
+            setFlash('danger', 'Dung lượng ảnh vượt quá giới hạn cho phép (Tối đa 5MB)!');
+            header('Location: ' . BASE_URL . '/admin/san-bong.php');
+            exit;
+        }
+
+        // 2. Kiểm tra phần mở rộng file (extension)
+        $origName = $_FILES['avatar']['name'];
+        $ext = strtolower(pathinfo($origName, PATHINFO_EXTENSION));
+        $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
+        if (!in_array($ext, $allowedExts)) {
+            setFlash('danger', 'Định dạng file không hợp lệ! Chỉ cho phép tải lên file ảnh: JPG, JPEG, PNG, WEBP.');
+            header('Location: ' . BASE_URL . '/admin/san-bong.php');
+            exit;
+        }
+
+        // 3. Kiểm tra MIME type thực tế bằng Fileinfo
+        $tmpPath = $_FILES['avatar']['tmp_name'];
+        $finfo = finfo_open(FILEINFO_MIME_TYPE);
+        $mimeType = finfo_file($finfo, $tmpPath);
+        finfo_close($finfo);
+
+        $allowedMimes = ['image/jpeg', 'image/png', 'image/webp'];
+        if (!in_array($mimeType, $allowedMimes)) {
+            setFlash('danger', 'File tải lên không phải là định dạng hình ảnh hợp lệ (MIME type: ' . e($mimeType) . ')!');
+            header('Location: ' . BASE_URL . '/admin/san-bong.php');
+            exit;
+        }
+
+        // 4. Kiểm tra tính toàn vẹn của ảnh bằng getimagesize
+        $imageSizeInfo = @getimagesize($tmpPath);
+        if ($imageSizeInfo === false) {
+            setFlash('danger', 'File ảnh không hợp lệ hoặc bị lỗi nội dung!');
+            header('Location: ' . BASE_URL . '/admin/san-bong.php');
+            exit;
+        }
+
+        // 5. Chuẩn bị thư mục lưu trữ thực tế
+        $uploadDir = realpath(__DIR__ . '/..') . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'san_bong' . DIRECTORY_SEPARATOR;
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0777, true);
+        }
+
+        // 6. Đặt tên file an toàn, duy nhất
+        $safeFileName = 'pitch_' . $id . '_' . time() . '_' . bin2hex(random_bytes(6)) . '.' . $ext;
+        $destFilePath = $uploadDir . $safeFileName;
+
+        // 7. Di chuyển file vào thư mục uploads/san_bong
+        if (!move_uploaded_file($tmpPath, $destFilePath)) {
+            setFlash('danger', 'Không thể lưu file ảnh vào thư mục máy chủ!');
+            header('Location: ' . BASE_URL . '/admin/san-bong.php');
+            exit;
+        }
+
+        // 8. Kiểm tra file đã được lưu thành công trên máy chủ
+        if (!file_exists($destFilePath) || filesize($destFilePath) === 0) {
+            setFlash('danger', 'Lỗi lưu trữ: File sau khi lưu không tồn tại hoặc có dung lượng 0 byte!');
+            header('Location: ' . BASE_URL . '/admin/san-bong.php');
+            exit;
+        }
+
+        // Đường dẫn tương đối lưu vào Database
+        $relativeDbPath = 'uploads/san_bong/' . $safeFileName;
+
+        // 9. Cập nhật cơ sở dữ liệu với Transaction an toàn
+        try {
+            $pdo->beginTransaction();
+
+            // Đặt tất cả ảnh hiện có của sân này thành la_anh_chinh = 0
+            $pdo->prepare("UPDATE hinh_anh_san SET la_anh_chinh = 0 WHERE san_bong_id = ?")->execute([$id]);
+
+            // Thêm bản ghi ảnh mới với la_anh_chinh = 1 cho đúng sân này
+            $insertStmt = $pdo->prepare("
+                INSERT INTO hinh_anh_san (san_bong_id, cum_san_id, url_hinh_anh, la_anh_chinh)
+                VALUES (?, NULL, ?, 1)
+            ");
+            $insertStmt->execute([$id, $relativeDbPath]);
+
+            $pdo->commit();
+            setFlash('success', 'Đã thay đổi và lưu cố định ảnh đại diện mới cho sân "' . $pitch['ten_san'] . '" thành công!');
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            // Nếu lưu database thất bại, xóa file vừa upload để không để lại file rác
+            if (file_exists($destFilePath)) {
+                @unlink($destFilePath);
+            }
+            setFlash('danger', 'Lỗi khi cập nhật cơ sở dữ liệu: ' . $e->getMessage() . '. Ảnh cũ vẫn được giữ nguyên.');
+        }
+
+        header('Location: ' . BASE_URL . '/admin/san-bong.php');
+        exit;
     }
 
     header('Location: ' . BASE_URL . '/admin/san-bong.php');

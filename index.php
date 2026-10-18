@@ -321,6 +321,38 @@ require_once __DIR__ . '/includes/header.php';
 </section>
 <?php endif; ?>
 
+<!-- BANNER TÌM ĐỐI ĐÁ BÓNG -->
+<section class="py-5" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 60%, #064e3b 100%); color: white;">
+    <div class="container">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-8">
+                <span class="badge bg-success px-3 py-2 rounded-pill fs-6 mb-3">
+                    <i class="bi bi-people-fill me-1"></i> Tính Năng Mới
+                </span>
+                <h2 class="display-6 fw-bold mb-3 text-white">Tìm Đối Đá Bóng - Kết Nối Đội Bóng Quanh Sân</h2>
+                <p class="text-light text-opacity-75 fs-6 mb-4" style="max-width: 650px;">
+                    Đội bóng của bạn đang thiếu đối thủ giao lưu? Hay bạn muốn tìm các đội bóng cùng trình độ quanh khu vực để tổ chức trận cầu cọ xát cuối tuần? Khám phá ngay cộng đồng tìm đối đá bóng trên BongDa16h!
+                </p>
+                <div class="d-flex flex-wrap gap-3">
+                    <a href="<?php echo BASE_URL; ?>/pages/tim-doi-bong.php" class="btn btn-success btn-lg px-4 py-2 rounded-pill fw-bold">
+                        <i class="bi bi-broadcast me-1"></i> Khám Phá Kèo Giao Lưu
+                    </a>
+                    <a href="<?php echo BASE_URL; ?>/pages/tim-doi-bong.php" class="btn btn-outline-light btn-lg px-4 py-2 rounded-pill">
+                        <i class="bi bi-plus-circle me-1"></i> Đăng Tin Tìm Đối
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-4 text-center">
+                <div class="p-4 rounded-4 bg-white bg-opacity-10 backdrop-blur border border-white border-opacity-25 shadow">
+                    <div class="display-3 text-warning mb-2"><i class="bi bi-trophy-fill"></i></div>
+                    <h5 class="fw-bold text-white mb-2">Giao Lưu Lành Mạnh</h5>
+                    <p class="text-light text-opacity-75 small mb-0">Hàng chục đội bóng phong trào, văn phòng, sinh viên sẵn sàng ghép trận cùng bạn mỗi ngày.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
 <!-- CAM KẾT & QUY TRÌNH ĐẶT SÂN -->
 <section class="py-5">
     <div class="container">

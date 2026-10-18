@@ -125,6 +125,33 @@ function renderFlash() {
 }
 
 /**
+ * Chuẩn hóa URL hiển thị hình ảnh (hỗ trợ cả URL ngoài Unsplash/CDN và file cục bộ trong uploads/)
+ */
+function getImageUrl($url) {
+    if (empty($url)) {
+        return 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=800&q=80';
+    }
+    // Nếu là URL ngoài (http:// hoặc https://)
+    if (preg_match('~^https?://~i', $url)) {
+        return $url;
+    }
+    // Nếu là đường dẫn cục bộ (ví dụ: uploads/san_bong/pitch_1_xxx.jpg)
+    return rtrim(BASE_URL, '/') . '/' . ltrim($url, '/');
+}
+
+/**
+ * Kiểm tra xem sân bóng có ảnh đại diện riêng chính thức hay không
+ */
+function hasCustomPitchAvatar($sanBongId, $pdo = null) {
+    if (!$pdo) {
+        $pdo = getDBConnection();
+    }
+    $stmt = $pdo->prepare("SELECT id FROM hinh_anh_san WHERE san_bong_id = ? AND la_anh_chinh = 1 LIMIT 1");
+    $stmt->execute([(int)$sanBongId]);
+    return (bool)$stmt->fetchColumn();
+}
+
+/**
  * Lấy ảnh đại diện chính của sân bóng
  * Quy tắc ưu tiên:
  * 1. Ảnh của san_bong có la_anh_chinh = 1
@@ -139,29 +166,31 @@ function getPitchMainImage($sanBongId, $cumSanId = null, $pdo = null) {
     }
 
     // 1. Ảnh chính của sân bóng
-    $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE san_bong_id = ? AND la_anh_chinh = 1 LIMIT 1");
-    $stmt->execute([$sanBongId]);
-    $img = $stmt->fetchColumn();
-    if ($img) return $img;
+    if ($sanBongId > 0) {
+        $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE san_bong_id = ? AND la_anh_chinh = 1 LIMIT 1");
+        $stmt->execute([$sanBongId]);
+        $img = $stmt->fetchColumn();
+        if ($img) return getImageUrl($img);
 
-    // 2. Ảnh bất kỳ của sân bóng
-    $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE san_bong_id = ? LIMIT 1");
-    $stmt->execute([$sanBongId]);
-    $img = $stmt->fetchColumn();
-    if ($img) return $img;
+        // 2. Ảnh bất kỳ của sân bóng
+        $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE san_bong_id = ? ORDER BY id DESC LIMIT 1");
+        $stmt->execute([$sanBongId]);
+        $img = $stmt->fetchColumn();
+        if ($img) return getImageUrl($img);
+    }
 
     // 3. Ảnh chính của cụm sân
     if ($cumSanId) {
         $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE cum_san_id = ? AND la_anh_chinh = 1 LIMIT 1");
         $stmt->execute([$cumSanId]);
         $img = $stmt->fetchColumn();
-        if ($img) return $img;
+        if ($img) return getImageUrl($img);
 
         // 4. Ảnh bất kỳ của cụm sân
-        $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE cum_san_id = ? LIMIT 1");
+        $stmt = $pdo->prepare("SELECT url_hinh_anh FROM hinh_anh_san WHERE cum_san_id = ? ORDER BY id DESC LIMIT 1");
         $stmt->execute([$cumSanId]);
         $img = $stmt->fetchColumn();
-        if ($img) return $img;
+        if ($img) return getImageUrl($img);
     }
 
     // 5. Ảnh dự phòng chất lượng cao về sân bóng đá
@@ -170,36 +199,59 @@ function getPitchMainImage($sanBongId, $cumSanId = null, $pdo = null) {
 
 /**
  * Lấy bộ sưu tập tất cả ảnh của sân (kết hợp sân và cụm sân)
+ * Tương thích 100% với môi trường Hosting (không dùng trùng tên placeholder)
  */
 function getPitchGallery($sanBongId, $cumSanId = null, $pdo = null) {
     if (!$pdo) {
         $pdo = getDBConnection();
     }
 
-    $sql = "
-        SELECT * FROM hinh_anh_san 
-        WHERE san_bong_id = :san_id 
-           OR (:cum_id IS NOT NULL AND cum_san_id = :cum_id)
-        ORDER BY la_anh_chinh DESC, id ASC
-    ";
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute([
-        ':san_id' => $sanBongId,
-        ':cum_id' => $cumSanId
-    ]);
-    $list = $stmt->fetchAll();
+    $sanBongId = (int)$sanBongId;
+    $cumSanId  = $cumSanId ? (int)$cumSanId : null;
 
-    if (empty($list)) {
-        return [[
-            'id' => 0,
-            'san_bong_id' => $sanBongId,
-            'cum_san_id' => $cumSanId,
-            'url_hinh_anh' => 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=800&q=80',
-            'la_anh_chinh' => 1
-        ]];
+    $defaultFallback = [[
+        'id' => 0,
+        'san_bong_id' => $sanBongId,
+        'cum_san_id' => $cumSanId,
+        'url_hinh_anh' => 'https://images.unsplash.com/photo-1529900748604-07564a03e7a6?auto=format&fit=crop&w=800&q=80',
+        'la_anh_chinh' => 1
+    ]];
+
+    try {
+        if ($cumSanId) {
+            $sql = "
+                SELECT * FROM hinh_anh_san 
+                WHERE san_bong_id = ? OR cum_san_id = ?
+                ORDER BY (san_bong_id = ? AND la_anh_chinh = 1) DESC, la_anh_chinh DESC, id DESC
+            ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$sanBongId, $cumSanId, $sanBongId]);
+        } else {
+            $sql = "
+                SELECT * FROM hinh_anh_san 
+                WHERE san_bong_id = ?
+                ORDER BY la_anh_chinh DESC, id DESC
+            ";
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute([$sanBongId]);
+        }
+        $list = $stmt->fetchAll();
+
+        if (empty($list)) {
+            return $defaultFallback;
+        }
+
+        // Chuẩn hóa url_hinh_anh qua getImageUrl
+        foreach ($list as &$item) {
+            $item['url_hinh_anh'] = getImageUrl($item['url_hinh_anh']);
+        }
+        unset($item);
+
+        return $list;
+    } catch (Exception $e) {
+        error_log('Error in getPitchGallery: ' . $e->getMessage());
+        return $defaultFallback;
     }
-
-    return $list;
 }
 
 /**
@@ -349,5 +401,84 @@ function renderPitchStatusBadge($status) {
         return '<span class="badge bg-success-subtle text-success border border-success px-2 py-1"><i class="bi bi-check-circle me-1"></i>Hoạt động</span>';
     }
     return '<span class="badge bg-danger-subtle text-danger border border-danger px-2 py-1"><i class="bi bi-tools me-1"></i>Bảo trì</span>';
+}
+
+/**
+ * Tính khoảng cách đường chim bay giữa 2 tọa độ theo công thức Haversine (km)
+ */
+function calculateDistance($lat1, $lon1, $lat2, $lon2) {
+    if (empty($lat1) || empty($lon1) || empty($lat2) || empty($lon2)) {
+        return null;
+    }
+    $lat1 = (float)$lat1;
+    $lon1 = (float)$lon1;
+    $lat2 = (float)$lat2;
+    $lon2 = (float)$lon2;
+
+    // Kiểm tra tính hợp lệ của tọa độ (VN: Vĩ độ 8-24, Kinh độ 102-110)
+    if ($lat1 <= 0 || $lon1 <= 0 || $lat2 <= 0 || $lon2 <= 0 || $lon1 > 120 || $lon2 > 120) {
+        return null;
+    }
+
+    $earthRadius = 6371; // km
+    $dLat = deg2rad($lat2 - $lat1);
+    $dLon = deg2rad($lon2 - $lon1);
+
+    $a = sin($dLat / 2) * sin($dLat / 2) +
+         cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+         sin($dLon / 2) * sin($dLon / 2);
+
+    $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+    return round($earthRadius * $c, 1);
+}
+
+/**
+ * Render Badge trình độ đội bóng
+ */
+function renderMatchSkillBadge($skill) {
+    $map = [
+        'Giao lưu'   => 'bg-info-subtle text-info-emphasis border border-info',
+        'Phong trào' => 'bg-success-subtle text-success-emphasis border border-success',
+        'Trung bình' => 'bg-warning-subtle text-warning-emphasis border border-warning',
+        'Khá'        => 'bg-danger-subtle text-danger-emphasis border border-danger',
+    ];
+    $cls = $map[$skill] ?? 'bg-secondary-subtle text-secondary';
+    return '<span class="badge ' . $cls . ' px-2 py-1"><i class="bi bi-fire me-1"></i>' . e($skill) . '</span>';
+}
+
+/**
+ * Render Badge trạng thái tin tìm đối
+ */
+function renderMatchStatusBadge($status) {
+    $map = [
+        'Đang tìm đối'     => 'bg-success text-white',
+        'Đã tìm được đối' => 'bg-primary text-white',
+        'Đã hủy'           => 'bg-secondary text-white',
+    ];
+    $cls = $map[$status] ?? 'bg-secondary text-white';
+    $icon = $status === 'Đang tìm đối' ? 'bi-broadcast-pin' : ($status === 'Đã tìm được đối' ? 'bi-check-all' : 'bi-x-circle');
+    return '<span class="badge ' . $cls . ' px-2 py-1"><i class="bi ' . $icon . ' me-1"></i>' . e($status) . '</span>';
+}
+
+/**
+ * Kiểm tra quyền quản lý (sửa/đổi trạng thái/xóa) tin tìm đối
+ */
+function canManageMatchPost($post, $currentUser = null) {
+    if (!$currentUser && function_exists('getCurrentUser')) {
+        $currentUser = getCurrentUser();
+    }
+    // Admin toàn quyền
+    if ($currentUser && (int)($currentUser['vai_tro_id'] ?? 0) === 1) {
+        return true;
+    }
+    // Chủ tin đăng khi đã đăng nhập
+    if ($currentUser && !empty($post['nguoi_dung_id']) && (int)$post['nguoi_dung_id'] === (int)$currentUser['id']) {
+        return true;
+    }
+    // Tin do khách đăng trong session hiện tại
+    if (!empty($_SESSION['my_posted_match_ids']) && in_array((int)$post['id'], $_SESSION['my_posted_match_ids'])) {
+        return true;
+    }
+    return false;
 }
 

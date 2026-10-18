@@ -221,7 +221,10 @@ require_once __DIR__ . '/../includes/header.php';
                                             <?php echo formatCurrency($pitch['gia_theo_gio']); ?>
                                             <small>/ giờ</small>
                                         </div>
-                                        <div class="d-flex gap-2">
+                                        <div class="d-flex gap-1">
+                                            <a href="<?php echo BASE_URL; ?>/pages/tim-doi-bong.php?san_id=<?php echo (int)$pitch['id']; ?>" class="btn btn-outline-success btn-sm" title="Tìm đối quanh sân này">
+                                                <i class="bi bi-people-fill"></i> Tìm đối
+                                            </a>
                                             <a href="<?php echo BASE_URL; ?>/pages/chi-tiet-san.php?id=<?php echo (int)$pitch['id']; ?>" class="btn btn-outline-secondary btn-sm">
                                                 Chi tiết
                                             </a>

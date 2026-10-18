@@ -64,6 +64,11 @@ $currentUrl = $_SERVER['REQUEST_URI'];
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link nav-link-custom <?php echo str_contains($currentUrl, 'tim-doi-bong.php') ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/pages/tim-doi-bong.php">
+                        <i class="bi bi-people-fill me-1 text-success"></i> Tìm đối đá
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link nav-link-custom <?php echo str_contains($currentUrl, 'lien-he.php') ? 'active' : ''; ?>" href="<?php echo BASE_URL; ?>/pages/lien-he.php">
                         <i class="bi bi-telephone me-1"></i> Liên hệ
                     </a>

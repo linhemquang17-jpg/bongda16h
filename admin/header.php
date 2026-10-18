@@ -89,6 +89,12 @@ $adminUri = $_SERVER['REQUEST_URI'];
                     <span>Thanh toán & Doanh thu</span>
                 </a>
             </li>
+            <li class="admin-nav-item">
+                <a href="<?php echo BASE_URL; ?>/admin/tim-doi.php" class="admin-nav-link <?php echo str_contains($adminUri, 'tim-doi.php') ? 'active' : ''; ?>">
+                    <i class="bi bi-people-fill"></i>
+                    <span>Tìm đối đá bóng</span>
+                </a>
+            </li>
             <?php if (isAdmin()): ?>
                 <li class="admin-nav-item">
                     <a href="<?php echo BASE_URL; ?>/admin/nguoi-dung.php" class="admin-nav-link <?php echo str_contains($adminUri, 'nguoi-dung.php') ? 'active' : ''; ?>">

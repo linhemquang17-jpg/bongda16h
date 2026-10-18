@@ -1,0 +1,64 @@
+# ==============================================================================
+# .gitignore cho Dự án Website Đặt Sân Bóng Đá BongDa16h (PHP / MySQL / XAMPP)
+# ==============================================================================
+
+# --- Môi trường, Thông tin bí mật & Cấu hình nhạy cảm ---
+.env
+.env.*
+*.env
+config/*.local.php
+config/database.local.php
+credentials.json
+auth.json
+ftp_credentials.*
+
+# --- Sao lưu cơ sở dữ liệu & File dump nhạy cảm ---
+*.sql.bak
+*.bak
+*backup*.sql
+database/*backup*.sql
+database/bongda16h_backup.sql
+*.dump
+
+# --- File nén, Archive không cần thiết ---
+*.zip
+*.rar
+*.tar.gz
+*.7z
+cauhinhweb.zip
+index.zip
+
+# --- File người dùng tải lên (Uploads) ---
+# Bỏ qua toàn bộ ảnh, file upload thực tế của khách hàng nhưng giữ cấu trúc thư mục và file bảo mật .htaccess
+uploads/**/*
+!uploads/**/
+!uploads/.htaccess
+!uploads/**/.gitkeep
+!uploads/**/index.html
+
+# --- File hệ thống & Trình soạn thảo IDE ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Giữ lại tasks.json và script tự động trong .vscode, loại trừ các file tạm khác
+.vscode/*
+!.vscode/tasks.json
+!.vscode/git-watch-push.ps1
+
+# --- Log & Cache ---
+*.log
+error_log
+logs/
+cache/
+tmp/
+temp/
+
+# --- Gói phụ thuộc (Dependency) nếu có ---
+vendor/
+node_modules/
