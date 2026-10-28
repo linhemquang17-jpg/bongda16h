@@ -17,7 +17,7 @@ if (!$bookingId) {
 $pdo = getDBConnection();
 $currentUser = getCurrentUser();
 
-// Lấy thông tin đơn đặt sân, người dùng, sân bóng, cụm sân, loại sân
+// Lấy thông tin đơn đặt sân, người dùng, sân bóng, cụm sân, loại sân an toàn bằng LEFT JOIN
 $stmt = $pdo->prepare("
     SELECT d.*, 
            u.ho_ten as ten_khach, u.so_dien_thoai as sdt_khach, u.email as email_khach,
@@ -26,10 +26,10 @@ $stmt = $pdo->prepare("
            l.ten_loai,
            t.phuong_thuc_thanh_toan, t.so_tien as so_tien_thanh_toan, t.trang_thai_thanh_toan, t.ngay_thanh_toan
     FROM dat_san d
-    JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
-    JOIN san_bong s ON d.san_bong_id = s.id
-    JOIN cum_san c ON s.cum_san_id = c.id
-    JOIN loai_san l ON s.loai_san_id = l.id
+    LEFT JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
+    LEFT JOIN san_bong s ON d.san_bong_id = s.id
+    LEFT JOIN cum_san c ON s.cum_san_id = c.id
+    LEFT JOIN loai_san l ON s.loai_san_id = l.id
     LEFT JOIN thanh_toan t ON d.id = t.dat_san_id
     WHERE d.id = ?
 ");
@@ -56,7 +56,7 @@ if (isLoggedIn() && !isStaffOrAdmin()) {
 $svcStmt = $pdo->prepare("
     SELECT cd.*, v.ten_dich_vu, v.don_vi_tinh 
     FROM chi_tiet_dich_vu cd
-    JOIN dich_vu v ON cd.dich_vu_id = v.id
+    LEFT JOIN dich_vu v ON cd.dich_vu_id = v.id
     WHERE cd.dat_san_id = ?
 ");
 $svcStmt->execute([$bookingId]);

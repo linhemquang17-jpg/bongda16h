@@ -131,9 +131,10 @@ require_once __DIR__ . '/../includes/header.php';
                                         <tr>
                                             <td>
                                                 <input class="form-check-input service-checkbox" type="checkbox" 
-                                                       name="services[<?php echo (int)$svc['id']; ?>]" 
-                                                       value="<?php echo (int)$svc['id']; ?>" 
-                                                       id="service_cb_<?php echo (int)$svc['id']; ?>">
+                                                       id="service_cb_<?php echo (int)$svc['id']; ?>"
+                                                       data-id="<?php echo (int)$svc['id']; ?>"
+                                                       data-price="<?php echo (float)$svc['don_gia']; ?>"
+                                                       value="<?php echo (int)$svc['id']; ?>">
                                             </td>
                                             <td>
                                                 <label for="service_cb_<?php echo (int)$svc['id']; ?>" class="fw-semibold mb-0 cursor-pointer">
@@ -149,6 +150,8 @@ require_once __DIR__ . '/../includes/header.php';
                                                        name="services[<?php echo (int)$svc['id']; ?>]" 
                                                        id="service_qty_<?php echo (int)$svc['id']; ?>" 
                                                        class="form-control form-control-sm service-qty-input" 
+                                                       data-id="<?php echo (int)$svc['id']; ?>"
+                                                       data-price="<?php echo (float)$svc['don_gia']; ?>"
                                                        value="1" min="1" max="50" disabled>
                                             </td>
                                         </tr>

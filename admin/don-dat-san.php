@@ -87,40 +87,50 @@ if (!empty($ngayDat)) {
 
 $whereClause = !empty($conditions) ? 'WHERE ' . implode(' AND ', $conditions) : '';
 
-// Đếm tổng số bản ghi
-$countSql = "
-    SELECT COUNT(*) 
-    FROM dat_san d
-    JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
-    JOIN san_bong s ON d.san_bong_id = s.id
-    LEFT JOIN thanh_toan t ON d.id = t.dat_san_id
-    {$whereClause}
-";
-$countStmt = $pdo->prepare($countSql);
-$countStmt->execute($params);
-$totalRecords = (int)$countStmt->fetchColumn();
-$totalPages   = ceil($totalRecords / $limit);
+// Đếm tổng số bản ghi an toàn
+$totalRecords = 0;
+$totalPages   = 1;
+$bookings     = [];
+$cumSanList   = [];
+$donDatSanError = null;
 
-// Lấy danh sách đơn
-$sql = "
-    SELECT d.*, 
-           u.ho_ten as ten_khach, u.so_dien_thoai as sdt_khach,
-           s.ten_san, c.ten_cum_san,
-           t.phuong_thuc_thanh_toan, t.trang_thai_thanh_toan
-    FROM dat_san d
-    JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
-    JOIN san_bong s ON d.san_bong_id = s.id
-    JOIN cum_san c ON s.cum_san_id = c.id
-    LEFT JOIN thanh_toan t ON d.id = t.dat_san_id
-    {$whereClause}
-    ORDER BY d.id DESC
-    LIMIT {$limit} OFFSET {$offset}
-";
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$bookings = $stmt->fetchAll();
+try {
+    $countSql = "
+        SELECT COUNT(*) 
+        FROM dat_san d
+        LEFT JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
+        LEFT JOIN san_bong s ON d.san_bong_id = s.id
+        LEFT JOIN thanh_toan t ON d.id = t.dat_san_id
+        {$whereClause}
+    ";
+    $countStmt = $pdo->prepare($countSql);
+    $countStmt->execute($params);
+    $totalRecords = (int)$countStmt->fetchColumn();
+    $totalPages   = max(1, (int)ceil($totalRecords / $limit));
 
-$cumSanList = $pdo->query("SELECT id, ten_cum_san FROM cum_san ORDER BY id ASC")->fetchAll();
+    // Lấy danh sách đơn
+    $sql = "
+        SELECT d.*, 
+               u.ho_ten as ten_khach, u.so_dien_thoai as sdt_khach,
+               s.ten_san, c.ten_cum_san,
+               t.phuong_thuc_thanh_toan, t.trang_thai_thanh_toan
+        FROM dat_san d
+        LEFT JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
+        LEFT JOIN san_bong s ON d.san_bong_id = s.id
+        LEFT JOIN cum_san c ON s.cum_san_id = c.id
+        LEFT JOIN thanh_toan t ON d.id = t.dat_san_id
+        {$whereClause}
+        ORDER BY d.id DESC
+        LIMIT {$limit} OFFSET {$offset}
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $bookings = $stmt->fetchAll();
+
+    $cumSanList = $pdo->query("SELECT id, ten_cum_san FROM cum_san ORDER BY id ASC")->fetchAll();
+} catch (Throwable $e) {
+    $donDatSanError = "Lỗi tải dữ liệu đơn đặt sân: " . $e->getMessage();
+}
 
 require_once __DIR__ . '/header.php';
 ?>
@@ -131,6 +141,13 @@ require_once __DIR__ . '/header.php';
         <p class="text-muted mb-0">Theo dõi, kiểm duyệt và cập nhật tình trạng đơn đặt sân trên toàn hệ thống</p>
     </div>
 </div>
+
+<?php if (!empty($donDatSanError)): ?>
+    <div class="alert alert-warning border-0 shadow-sm rounded-3 mb-4">
+        <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+        <?php echo e($donDatSanError); ?> - <a href="<?php echo BASE_URL; ?>/admin/diagnostics.php" class="fw-bold text-dark text-decoration-none">Kiểm tra đồng bộ database</a>
+    </div>
+<?php endif; ?>
 
 <!-- BỘ LỌC TÌM KIẾM -->
 <div class="admin-card mb-4">
