@@ -5,6 +5,25 @@
 
 require_once __DIR__ . '/../config/database.php';
 
+// Polyfill tương thích mọi phiên bản PHP (< 8.0) trên Hosting InfinityFree
+if (!function_exists('str_contains')) {
+    function str_contains($haystack, $needle) {
+        return $needle === '' || mb_strpos((string)$haystack, (string)$needle) !== false;
+    }
+}
+if (!function_exists('str_starts_with')) {
+    function str_starts_with($haystack, $needle) {
+        return (string)$needle === '' || strncmp((string)$haystack, (string)$needle, strlen((string)$needle)) === 0;
+    }
+}
+if (!function_exists('str_ends_with')) {
+    function str_ends_with($haystack, $needle) {
+        $n = (string)$needle;
+        $h = (string)$haystack;
+        return $n === '' || $n === substr($h, -strlen($n));
+    }
+}
+
 /**
  * Lọc và escape chuỗi hiển thị tránh XSS
  */

@@ -37,62 +37,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     exit;
 }
 
-// Thống kê tổng quan
-$totalPaid = (float)$pdo->query("
-    SELECT COALESCE(SUM(so_tien), 0) 
-    FROM thanh_toan 
-    WHERE trang_thai_thanh_toan = 'Đã thanh toán đủ'
-")->fetchColumn();
+// Thống kê tổng quan an toàn
+$totalPaid = 0.0;
+$totalDeposit = 0.0;
+$totalPending = 0.0;
+$payments = [];
+$payError = null;
 
-$totalDeposit = (float)$pdo->query("
-    SELECT COALESCE(SUM(so_tien), 0) 
-    FROM thanh_toan 
-    WHERE trang_thai_thanh_toan = 'Đã đặt cọc'
-")->fetchColumn();
+try {
+    $totalPaid = (float)$pdo->query("
+        SELECT COALESCE(SUM(so_tien), 0) 
+        FROM thanh_toan 
+        WHERE trang_thai_thanh_toan = 'Đã thanh toán đủ'
+    ")->fetchColumn();
 
-$totalPending = (float)$pdo->query("
-    SELECT COALESCE(SUM(so_tien), 0) 
-    FROM thanh_toan 
-    WHERE trang_thai_thanh_toan = 'Chưa thanh toán'
-")->fetchColumn();
+    $totalDeposit = (float)$pdo->query("
+        SELECT COALESCE(SUM(so_tien), 0) 
+        FROM thanh_toan 
+        WHERE trang_thai_thanh_toan = 'Đã đặt cọc'
+    ")->fetchColumn();
+
+    $totalPending = (float)$pdo->query("
+        SELECT COALESCE(SUM(so_tien), 0) 
+        FROM thanh_toan 
+        WHERE trang_thai_thanh_toan = 'Chưa thanh toán'
+    ")->fetchColumn();
+
+    // Lọc dữ liệu danh sách giao dịch
+    $filterMethod = sanitize($_GET['method'] ?? '');
+    $filterStatus = sanitize($_GET['status'] ?? '');
+
+    $conditions = [];
+    $params = [];
+
+    if (!empty($filterMethod)) {
+        $conditions[] = "t.phuong_thuc_thanh_toan = :method";
+        $params[':method'] = $filterMethod;
+    }
+
+    if (!empty($filterStatus)) {
+        $conditions[] = "t.trang_thai_thanh_toan = :status";
+        $params[':status'] = $filterStatus;
+    }
+
+    $whereClause = !empty($conditions) ? 'WHERE ' . implode(' AND ', $conditions) : '';
+
+    $sql = "
+        SELECT t.*, 
+               d.ngay_dat, d.gio_bat_dau, d.gio_ket_thuc, d.trang_thai_dat,
+               u.ho_ten as ten_khach, u.so_dien_thoai as sdt_khach,
+               s.ten_san, c.ten_cum_san
+        FROM thanh_toan t
+        JOIN dat_san d ON t.dat_san_id = d.id
+        JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
+        JOIN san_bong s ON d.san_bong_id = s.id
+        JOIN cum_san c ON s.cum_san_id = c.id
+        {$whereClause}
+        ORDER BY t.id DESC
+    ";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $payments = $stmt->fetchAll();
+} catch (Throwable $e) {
+    $payError = "Cảnh báo cơ sở dữ liệu: " . $e->getMessage();
+}
 
 $validTotalRevenue = $totalPaid + $totalDeposit;
-
-// Lọc dữ liệu danh sách giao dịch
-$filterMethod = sanitize($_GET['method'] ?? '');
-$filterStatus = sanitize($_GET['status'] ?? '');
-
-$conditions = [];
-$params = [];
-
-if (!empty($filterMethod)) {
-    $conditions[] = "t.phuong_thuc_thanh_toan = :method";
-    $params[':method'] = $filterMethod;
-}
-
-if (!empty($filterStatus)) {
-    $conditions[] = "t.trang_thai_thanh_toan = :status";
-    $params[':status'] = $filterStatus;
-}
-
-$whereClause = !empty($conditions) ? 'WHERE ' . implode(' AND ', $conditions) : '';
-
-$sql = "
-    SELECT t.*, 
-           d.ngay_dat, d.gio_bat_dau, d.gio_ket_thuc, d.trang_thai_dat,
-           u.ho_ten as ten_khach, u.so_dien_thoai as sdt_khach,
-           s.ten_san, c.ten_cum_san
-    FROM thanh_toan t
-    JOIN dat_san d ON t.dat_san_id = d.id
-    JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
-    JOIN san_bong s ON d.san_bong_id = s.id
-    JOIN cum_san c ON s.cum_san_id = c.id
-    {$whereClause}
-    ORDER BY t.id DESC
-";
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$payments = $stmt->fetchAll();
 
 require_once __DIR__ . '/header.php';
 ?>
@@ -103,6 +113,13 @@ require_once __DIR__ . '/header.php';
         <p class="text-muted mb-0">Theo dõi dòng tiền thanh toán hợp lệ từ khách hàng</p>
     </div>
 </div>
+
+<?php if (!empty($payError)): ?>
+    <div class="alert alert-warning border-0 shadow-sm rounded-3 mb-4">
+        <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+        <?php echo e($payError); ?> - <a href="<?php echo BASE_URL; ?>/admin/diagnostics.php" class="fw-bold text-decoration-none text-dark">Mở công cụ chẩn đoán để đồng bộ bảng thanh toán</a>
+    </div>
+<?php endif; ?>
 
 <!-- STAT CARDS DOANH THU -->
 <div class="row g-4 mb-4">

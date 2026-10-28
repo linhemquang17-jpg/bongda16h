@@ -11,59 +11,111 @@ require_once __DIR__ . '/auth_check.php';
 
 $pdo = getDBConnection();
 
+// Khởi tạo các giá trị mặc định an toàn chống lỗi HTTP 500
+$totalPitches      = 0;
+$totalComplexes    = 0;
+$totalUsers        = 0;
+$totalBookings     = 0;
+$pendingBookings   = 0;
+$confirmedBookings = 0;
+$completedBookings = 0;
+$canceledBookings  = 0;
+$validRevenue      = 0.0;
+$recentBookings    = [];
+$todayList         = [];
+$dbWarnings        = [];
+
 // 1. Thống kê số lượng
-$totalPitches   = (int)$pdo->query("SELECT COUNT(*) FROM san_bong")->fetchColumn();
-$totalComplexes = (int)$pdo->query("SELECT COUNT(*) FROM cum_san")->fetchColumn();
-$totalUsers     = (int)$pdo->query("SELECT COUNT(*) FROM nguoi_dung")->fetchColumn();
-$totalBookings  = (int)$pdo->query("SELECT COUNT(*) FROM dat_san")->fetchColumn();
+try {
+    $totalPitches   = (int)$pdo->query("SELECT COUNT(*) FROM san_bong")->fetchColumn();
+    $totalComplexes = (int)$pdo->query("SELECT COUNT(*) FROM cum_san")->fetchColumn();
+    $totalUsers     = (int)$pdo->query("SELECT COUNT(*) FROM nguoi_dung")->fetchColumn();
+    $totalBookings  = (int)$pdo->query("SELECT COUNT(*) FROM dat_san")->fetchColumn();
+} catch (Throwable $e) {
+    $dbWarnings[] = "Lỗi thống kê số lượng: " . $e->getMessage();
+}
 
 // 2. Thống kê trạng thái đơn
-$pendingBookings   = (int)$pdo->query("SELECT COUNT(*) FROM dat_san WHERE trang_thai_dat = 'Chờ xác nhận'")->fetchColumn();
-$confirmedBookings = (int)$pdo->query("SELECT COUNT(*) FROM dat_san WHERE trang_thai_dat = 'Đã xác nhận'")->fetchColumn();
-$completedBookings = (int)$pdo->query("SELECT COUNT(*) FROM dat_san WHERE trang_thai_dat = 'Đã hoàn thành'")->fetchColumn();
-$canceledBookings  = (int)$pdo->query("SELECT COUNT(*) FROM dat_san WHERE trang_thai_dat = 'Đã hủy'")->fetchColumn();
+try {
+    $pendingBookings   = (int)$pdo->query("SELECT COUNT(*) FROM dat_san WHERE trang_thai_dat = 'Chờ xác nhận'")->fetchColumn();
+    $confirmedBookings = (int)$pdo->query("SELECT COUNT(*) FROM dat_san WHERE trang_thai_dat = 'Đã xác nhận'")->fetchColumn();
+    $completedBookings = (int)$pdo->query("SELECT COUNT(*) FROM dat_san WHERE trang_thai_dat = 'Đã hoàn thành'")->fetchColumn();
+    $canceledBookings  = (int)$pdo->query("SELECT COUNT(*) FROM dat_san WHERE trang_thai_dat = 'Đã hủy'")->fetchColumn();
+} catch (Throwable $e) {
+    $dbWarnings[] = "Lỗi thống kê trạng thái đơn: " . $e->getMessage();
+}
 
 // 3. Doanh thu đã thanh toán hợp lệ
-// Chỉ tính từ giao dịch đã thanh toán đủ hoặc đã đặt cọc
-$stmtRev = $pdo->query("
-    SELECT COALESCE(SUM(so_tien), 0) 
-    FROM thanh_toan 
-    WHERE trang_thai_thanh_toan IN ('Đã thanh toán đủ', 'Đã đặt cọc')
-");
-$validRevenue = (float)$stmtRev->fetchColumn();
+try {
+    $stmtRev = $pdo->query("
+        SELECT COALESCE(SUM(so_tien), 0) 
+        FROM thanh_toan 
+        WHERE trang_thai_thanh_toan IN ('Đã thanh toán đủ', 'Đã đặt cọc')
+    ");
+    $validRevenue = (float)$stmtRev->fetchColumn();
+} catch (Throwable $e) {
+    $dbWarnings[] = "Lỗi bảng thanh toán: " . $e->getMessage();
+}
 
-// 4. Danh sách 5 đơn đặt sân mới nhất
-$recentBookings = $pdo->query("
-    SELECT d.*, 
-           u.ho_ten as ten_khach, u.so_dien_thoai as sdt_khach,
-           s.ten_san, c.ten_cum_san,
-           t.phuong_thuc_thanh_toan, t.trang_thai_thanh_toan
-    FROM dat_san d
-    JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
-    JOIN san_bong s ON d.san_bong_id = s.id
-    JOIN cum_san c ON s.cum_san_id = c.id
-    LEFT JOIN thanh_toan t ON d.id = t.dat_san_id
-    ORDER BY d.id DESC
-    LIMIT 6
-")->fetchAll();
+// 4. Danh sách 6 đơn đặt sân mới nhất
+try {
+    $recentBookings = $pdo->query("
+        SELECT d.*, 
+               u.ho_ten as ten_khach, u.so_dien_thoai as sdt_khach,
+               s.ten_san, c.ten_cum_san,
+               t.phuong_thuc_thanh_toan, t.trang_thai_thanh_toan
+        FROM dat_san d
+        JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
+        JOIN san_bong s ON d.san_bong_id = s.id
+        JOIN cum_san c ON s.cum_san_id = c.id
+        LEFT JOIN thanh_toan t ON d.id = t.dat_san_id
+        ORDER BY d.id DESC
+        LIMIT 6
+    ")->fetchAll();
+} catch (Throwable $e) {
+    $dbWarnings[] = "Lỗi danh sách đơn mới: " . $e->getMessage();
+}
 
 // 5. Lịch đá bóng hôm nay
-$today = date('Y-m-d');
-$todayBookings = $pdo->prepare("
-    SELECT d.*, 
-           u.ho_ten as ten_khach, u.so_dien_thoai as sdt_khach,
-           s.ten_san, c.ten_cum_san
-    FROM dat_san d
-    JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
-    JOIN san_bong s ON d.san_bong_id = s.id
-    JOIN cum_san c ON s.cum_san_id = c.id
-    WHERE d.ngay_dat = ? AND d.trang_thai_dat != 'Đã hủy'
-    ORDER BY d.gio_bat_dau ASC
-");
-$todayBookings->execute([$today]);
-$todayList = $todayBookings->fetchAll();
+try {
+    $today = date('Y-m-d');
+    $todayBookings = $pdo->prepare("
+        SELECT d.*, 
+               u.ho_ten as ten_khach, u.so_dien_thoai as sdt_khach,
+               s.ten_san, c.ten_cum_san
+        FROM dat_san d
+        JOIN nguoi_dung u ON d.nguoi_dung_id = u.id
+        JOIN san_bong s ON d.san_bong_id = s.id
+        JOIN cum_san c ON s.cum_san_id = c.id
+        WHERE d.ngay_dat = ? AND d.trang_thai_dat != 'Đã hủy'
+        ORDER BY d.gio_bat_dau ASC
+    ");
+    $todayBookings->execute([$today]);
+    $todayList = $todayBookings->fetchAll();
+} catch (Throwable $e) {
+    $dbWarnings[] = "Lỗi lịch đá hôm nay: " . $e->getMessage();
+}
 
 require_once __DIR__ . '/header.php';
+?>
+
+<?php if (!empty($dbWarnings)): ?>
+    <div class="alert alert-warning border-0 shadow-sm rounded-4 p-4 mb-4">
+        <div class="d-flex align-items-center mb-2">
+            <i class="bi bi-exclamation-triangle-fill text-warning fs-3 me-2"></i>
+            <h5 class="fw-bold mb-0 text-dark">Cảnh báo đồng bộ Cơ sở dữ liệu</h5>
+        </div>
+        <p class="small text-muted mb-2">Hệ thống phát hiện một số bảng hoặc truy vấn MySQL chưa hoàn tất dữ liệu. Trang Admin vẫn hoạt động an toàn và không bị lỗi HTTP 500. Vui lòng kiểm tra các mục bên dưới:</p>
+        <ul class="small mb-3 text-danger">
+            <?php foreach ($dbWarnings as $warn): ?>
+                <li><code><?php echo e($warn); ?></code></li>
+            <?php endforeach; ?>
+        </ul>
+        <a href="<?php echo BASE_URL; ?>/admin/diagnostics.php" class="btn btn-warning btn-sm fw-bold">
+            <i class="bi bi-tools me-1"></i> Mở Công Cụ Kiểm Tra & Sửa Lỗi Database (Diagnostics)
+        </a>
+    </div>
+<?php endif; ?>
 ?>
 
 <div class="d-flex align-items-center justify-content-between mb-4">

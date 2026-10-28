@@ -85,9 +85,15 @@ if (!empty($statusFilter) && $statusFilter !== 'all') {
 
 $sql .= " ORDER BY t.id DESC";
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$posts = $stmt->fetchAll();
+$posts = [];
+$timDoiWarning = null;
+try {
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $posts = $stmt->fetchAll();
+} catch (Throwable $e) {
+    $timDoiWarning = "Chưa tìm thấy bảng dữ liệu tìm đối hoặc truy vấn bị gián đoạn: " . $e->getMessage();
+}
 
 require_once __DIR__ . '/header.php';
 ?>
@@ -103,6 +109,13 @@ require_once __DIR__ . '/header.php';
         </a>
     </div>
 </div>
+
+<?php if (!empty($timDoiWarning)): ?>
+    <div class="alert alert-warning border-0 shadow-sm rounded-3 mb-4">
+        <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+        <?php echo e($timDoiWarning); ?> - <a href="<?php echo BASE_URL; ?>/admin/diagnostics.php" class="fw-bold text-dark text-decoration-none">Khởi tạo bảng tim_doi_bong</a>
+    </div>
+<?php endif; ?>
 
 <?php renderFlash(); ?>
 

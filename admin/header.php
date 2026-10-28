@@ -102,6 +102,12 @@ $adminUri = $_SERVER['REQUEST_URI'];
                         <span>Người dùng & Phân quyền</span>
                     </a>
                 </li>
+                <li class="admin-nav-item">
+                    <a href="<?php echo BASE_URL; ?>/admin/diagnostics.php" class="admin-nav-link <?php echo str_contains($adminUri, 'diagnostics.php') ? 'active' : ''; ?>">
+                        <i class="bi bi-shield-check"></i>
+                        <span>Kiểm tra hệ thống</span>
+                    </a>
+                </li>
             <?php endif; ?>
             <li class="admin-nav-item mt-4 pt-3 border-top border-secondary border-opacity-25">
                 <a href="<?php echo BASE_URL; ?>/index.php" target="_blank" class="admin-nav-link text-white-50">

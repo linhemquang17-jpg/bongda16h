@@ -1,16 +1,10 @@
-# Chặn thực thi các file mã nguồn động trong thư mục upload
+# Chặn thực thi mã động trong thư mục upload, tương thích Apache 2.2 và Apache 2.4 trên InfinityFree
 <FilesMatch "(?i)\.(php|php3|php4|php5|phtml|pl|py|cgi|asp|aspx|sh|bat)$">
-    Order Deny,Allow
-    Deny from all
+    <IfModule !mod_authz_core.c>
+        Order Deny,Allow
+        Deny from all
+    </IfModule>
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
 </FilesMatch>
-
-# Vô hiệu hóa PHP Engine
-<IfModule mod_php.c>
-    php_flag engine off
-</IfModule>
-<IfModule mod_php7.c>
-    php_flag engine off
-</IfModule>
-<IfModule mod_php8.c>
-    php_flag engine off
-</IfModule>

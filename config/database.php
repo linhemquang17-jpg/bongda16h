@@ -5,6 +5,15 @@
  * Tương thích: Cả môi trường Localhost (XAMPP) và Hosting (InfinityFree)
  */
 
+// Chế độ debug an toàn: Cho phép xem chi tiết lỗi PHP khi cần kiểm tra hosting (thêm ?debug_bongda=1)
+if (isset($_GET['debug_bongda']) && $_GET['debug_bongda'] === '1') {
+    ini_set('display_errors', '1');
+    ini_set('display_startup_errors', '1');
+    error_reporting(E_ALL);
+} else {
+    ini_set('display_errors', '0');
+}
+
 if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
     session_start();
 }
