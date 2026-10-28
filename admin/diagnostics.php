@@ -243,6 +243,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } catch (Throwable $e) { $errors[] = "tim_doi_bong: " . $e->getMessage(); }
         }
 
+        // Tạo bảng dich_vu nếu thiếu
+        if (in_array('dich_vu', $missingTables)) {
+            try {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS `dich_vu` (
+                      `id` int(11) NOT NULL AUTO_INCREMENT,
+                      `ten_dich_vu` varchar(100) NOT NULL,
+                      `don_gia` decimal(10,2) DEFAULT NULL,
+                      `don_vi_tinh` varchar(20) DEFAULT NULL,
+                      PRIMARY KEY (`id`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                    INSERT IGNORE INTO `dich_vu` (`id`, `ten_dich_vu`, `don_gia`, `don_vi_tinh`) VALUES 
+                    (1,'Nước suối Aquafina',10000.00,'Chai'),
+                    (2,'Sting / Revive',15000.00,'Chai'),
+                    (3,'Thuê áo mượn đội',30000.00,'Bộ');
+                ");
+                $created[] = 'dich_vu';
+            } catch (Throwable $e) { $errors[] = "dich_vu: " . $e->getMessage(); }
+        }
+
+        // Tạo bảng chi_tiet_dich_vu nếu thiếu
+        if (in_array('chi_tiet_dich_vu', $missingTables)) {
+            try {
+                $pdo->exec("
+                    CREATE TABLE IF NOT EXISTS `chi_tiet_dich_vu` (
+                      `id` INT(11) NOT NULL AUTO_INCREMENT,
+                      `dat_san_id` INT(11) NOT NULL COMMENT 'Mã đơn đặt sân (liên kết dat_san)',
+                      `dich_vu_id` INT(11) NOT NULL COMMENT 'Mã dịch vụ bổ sung (liên kết dich_vu)',
+                      `ten_dich_vu` VARCHAR(100) DEFAULT NULL COMMENT 'Tên dịch vụ tại thời điểm đặt',
+                      `don_vi_tinh` VARCHAR(20) DEFAULT NULL COMMENT 'Đơn vị tính',
+                      `don_gia` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Đơn giá tại thời điểm đặt',
+                      `so_luong` INT(11) NOT NULL DEFAULT 1 COMMENT 'Số lượng đặt',
+                      `thanh_tien` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Thành tiền = don_gia * so_luong',
+                      `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      PRIMARY KEY (`id`),
+                      KEY `fk_ctdv_dat_san` (`dat_san_id`),
+                      KEY `fk_ctdv_dich_vu` (`dich_vu_id`)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+                ");
+                $created[] = 'chi_tiet_dich_vu';
+            } catch (Throwable $e) { $errors[] = "chi_tiet_dich_vu: " . $e->getMessage(); }
+        }
+
         // Bổ sung các cột dia_chi, link_google_map, hinh_anh_dai_dien vào san_bong nếu thiếu
         if (in_array('san_bong', $existingTables)) {
             try {

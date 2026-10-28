@@ -150,16 +150,19 @@ try {
             $sId = (int)$sId;
             $qty = (int)$qty;
             if ($qty > 0) {
-                $svcQuery = $pdo->prepare("SELECT id, don_gia FROM dich_vu WHERE id = ?");
+                $svcQuery = $pdo->prepare("SELECT id, ten_dich_vu, don_gia, don_vi_tinh FROM dich_vu WHERE id = ?");
                 $svcQuery->execute([$sId]);
                 $svcData = $svcQuery->fetch();
                 if ($svcData) {
                     $itemTotal = (float)$svcData['don_gia'] * $qty;
                     $servicesTotal += $itemTotal;
                     $validServiceItems[] = [
-                        'dich_vu_id' => $sId,
-                        'so_luong'   => $qty,
-                        'don_gia'    => (float)$svcData['don_gia']
+                        'dich_vu_id'  => $sId,
+                        'ten_dich_vu' => $svcData['ten_dich_vu'],
+                        'don_vi_tinh' => $svcData['don_vi_tinh'] ?? 'Phần',
+                        'so_luong'    => $qty,
+                        'don_gia'     => (float)$svcData['don_gia'],
+                        'thanh_tien'  => $itemTotal
                     ];
                 }
             }
@@ -185,17 +188,43 @@ try {
 
     // 7.3 Thêm vào bảng chi_tiet_dich_vu nếu có
     if (!empty($validServiceItems)) {
-        $detailStmt = $pdo->prepare("
-            INSERT INTO chi_tiet_dich_vu (dat_san_id, dich_vu_id, so_luong, don_gia)
-            VALUES (?, ?, ?, ?)
-        ");
-        foreach ($validServiceItems as $svc) {
-            $detailStmt->execute([
-                $bookingId,
-                $svc['dich_vu_id'],
-                $svc['so_luong'],
-                $svc['don_gia']
-            ]);
+        // Tự động kiểm tra cấu trúc cột thực tế của bảng chi_tiet_dich_vu để tương thích tuyệt đối
+        $existingCols = [];
+        try {
+            $existingCols = $pdo->query("SHOW COLUMNS FROM chi_tiet_dich_vu")->fetchAll(PDO::FETCH_COLUMN);
+        } catch (Throwable $e) {}
+
+        $hasFullCols = in_array('ten_dich_vu', $existingCols) && in_array('thanh_tien', $existingCols);
+
+        if ($hasFullCols) {
+            $detailStmt = $pdo->prepare("
+                INSERT INTO chi_tiet_dich_vu (dat_san_id, dich_vu_id, ten_dich_vu, don_vi_tinh, so_luong, don_gia, thanh_tien)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ");
+            foreach ($validServiceItems as $svc) {
+                $detailStmt->execute([
+                    $bookingId,
+                    $svc['dich_vu_id'],
+                    $svc['ten_dich_vu'],
+                    $svc['don_vi_tinh'],
+                    $svc['so_luong'],
+                    $svc['don_gia'],
+                    $svc['thanh_tien']
+                ]);
+            }
+        } else {
+            $detailStmt = $pdo->prepare("
+                INSERT INTO chi_tiet_dich_vu (dat_san_id, dich_vu_id, so_luong, don_gia)
+                VALUES (?, ?, ?, ?)
+            ");
+            foreach ($validServiceItems as $svc) {
+                $detailStmt->execute([
+                    $bookingId,
+                    $svc['dich_vu_id'],
+                    $svc['so_luong'],
+                    $svc['don_gia']
+                ]);
+            }
         }
     }
 

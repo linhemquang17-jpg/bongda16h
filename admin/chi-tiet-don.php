@@ -105,15 +105,34 @@ if ($bookingId) {
         $booking = $stmt->fetch();
 
         if ($booking) {
-            // Lấy danh sách dịch vụ kèm theo
-            $svcStmt = $pdo->prepare("
-                SELECT cd.*, v.ten_dich_vu, v.don_vi_tinh 
-                FROM chi_tiet_dich_vu cd
-                LEFT JOIN dich_vu v ON cd.dich_vu_id = v.id
-                WHERE cd.dat_san_id = ?
-            ");
-            $svcStmt->execute([$bookingId]);
-            $bookedServices = $svcStmt->fetchAll();
+            // Lấy danh sách dịch vụ kèm theo an toàn (không crash nếu bảng chưa tồn tại)
+            $bookedServices = [];
+            try {
+                $svcStmt = $pdo->prepare("
+                    SELECT cd.*, 
+                           COALESCE(NULLIF(cd.ten_dich_vu, ''), v.ten_dich_vu, 'Dịch vụ') AS ten_dich_vu_hien_thi,
+                           COALESCE(NULLIF(cd.don_vi_tinh, ''), v.don_vi_tinh, 'lần') AS don_vi_tinh_hien_thi
+                    FROM chi_tiet_dich_vu cd
+                    LEFT JOIN dich_vu v ON cd.dich_vu_id = v.id
+                    WHERE cd.dat_san_id = ?
+                ");
+                $svcStmt->execute([$bookingId]);
+                $bookedServices = $svcStmt->fetchAll();
+            } catch (Throwable $se) {
+                // Fallback nếu bảng chưa có cột ten_dich_vu hoặc bảng chưa được tạo
+                try {
+                    $svcStmt = $pdo->prepare("
+                        SELECT cd.*, v.ten_dich_vu, v.don_vi_tinh 
+                        FROM chi_tiet_dich_vu cd
+                        LEFT JOIN dich_vu v ON cd.dich_vu_id = v.id
+                        WHERE cd.dat_san_id = ?
+                    ");
+                    $svcStmt->execute([$bookingId]);
+                    $bookedServices = $svcStmt->fetchAll();
+                } catch (Throwable $se2) {
+                    $bookedServices = [];
+                }
+            }
 
             // Tính tiền sân an toàn
             $calcTime = calculatePitchPrice(
@@ -245,13 +264,17 @@ require_once __DIR__ . '/header.php';
                             <?php 
                             $serviceSum = 0;
                             foreach ($bookedServices as $svc): 
-                                $sub = (float)($svc['don_gia'] ?? 0) * (int)($svc['so_luong'] ?? 1);
+                                $svcName = !empty($svc['ten_dich_vu_hien_thi']) ? $svc['ten_dich_vu_hien_thi'] : (!empty($svc['ten_dich_vu']) ? $svc['ten_dich_vu'] : 'Dịch vụ kèm theo');
+                                $svcUnit = !empty($svc['don_vi_tinh_hien_thi']) ? $svc['don_vi_tinh_hien_thi'] : (!empty($svc['don_vi_tinh']) ? $svc['don_vi_tinh'] : 'Phần');
+                                $unitPrice = (float)($svc['don_gia'] ?? 0);
+                                $qty = (int)($svc['so_luong'] ?? 1);
+                                $sub = isset($svc['thanh_tien']) && (float)$svc['thanh_tien'] > 0 ? (float)$svc['thanh_tien'] : ($unitPrice * $qty);
                                 $serviceSum += $sub;
                             ?>
                                 <tr>
-                                    <td>Dịch vụ: <?php echo e($svc['ten_dich_vu'] ?? 'Dịch vụ kèm theo'); ?> (<?php echo e($svc['don_vi_tinh'] ?? 'Phần'); ?>)</td>
-                                    <td class="text-center"><?php echo (int)($svc['so_luong'] ?? 1); ?></td>
-                                    <td class="text-end"><?php echo formatCurrency($svc['don_gia'] ?? 0); ?></td>
+                                    <td>Dịch vụ: <?php echo e($svcName); ?> (<?php echo e($svcUnit); ?>)</td>
+                                    <td class="text-center"><?php echo $qty; ?></td>
+                                    <td class="text-end"><?php echo formatCurrency($unitPrice); ?></td>
                                     <td class="text-end fw-semibold"><?php echo formatCurrency($sub); ?></td>
                                 </tr>
                             <?php endforeach; ?>

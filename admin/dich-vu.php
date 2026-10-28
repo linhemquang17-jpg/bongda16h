@@ -56,9 +56,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'delete') {
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
-            $chk = $pdo->prepare("SELECT COUNT(*) FROM chi_tiet_dich_vu WHERE dich_vu_id = ?");
-            $chk->execute([$id]);
-            if ($chk->fetchColumn() > 0) {
+            $usedCount = 0;
+            try {
+                $chk = $pdo->prepare("SELECT COUNT(*) FROM chi_tiet_dich_vu WHERE dich_vu_id = ?");
+                $chk->execute([$id]);
+                $usedCount = (int)$chk->fetchColumn();
+            } catch (Throwable $e) {
+                $usedCount = 0;
+            }
+
+            if ($usedCount > 0) {
                 setFlash('warning', 'Dịch vụ này đã có trong lịch sử đơn đặt sân của khách, không thể xóa để bảo toàn chứng từ!');
             } else {
                 try {

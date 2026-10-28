@@ -52,15 +52,33 @@ if (isLoggedIn() && !isStaffOrAdmin()) {
     }
 }
 
-// Lấy chi tiết dịch vụ của đơn nếu có
-$svcStmt = $pdo->prepare("
-    SELECT cd.*, v.ten_dich_vu, v.don_vi_tinh 
-    FROM chi_tiet_dich_vu cd
-    LEFT JOIN dich_vu v ON cd.dich_vu_id = v.id
-    WHERE cd.dat_san_id = ?
-");
-$svcStmt->execute([$bookingId]);
-$bookedServices = $svcStmt->fetchAll();
+// Lấy chi tiết dịch vụ của đơn nếu có (an toàn nếu bảng chưa tồn tại hoặc cột chưa đồng bộ)
+$bookedServices = [];
+try {
+    $svcStmt = $pdo->prepare("
+        SELECT cd.*, 
+               COALESCE(NULLIF(cd.ten_dich_vu, ''), v.ten_dich_vu, 'Dịch vụ') AS ten_dich_vu_hien_thi,
+               COALESCE(NULLIF(cd.don_vi_tinh, ''), v.don_vi_tinh, 'lần') AS don_vi_tinh_hien_thi
+        FROM chi_tiet_dich_vu cd
+        LEFT JOIN dich_vu v ON cd.dich_vu_id = v.id
+        WHERE cd.dat_san_id = ?
+    ");
+    $svcStmt->execute([$bookingId]);
+    $bookedServices = $svcStmt->fetchAll();
+} catch (Throwable $se) {
+    try {
+        $svcStmt = $pdo->prepare("
+            SELECT cd.*, v.ten_dich_vu, v.don_vi_tinh 
+            FROM chi_tiet_dich_vu cd
+            LEFT JOIN dich_vu v ON cd.dich_vu_id = v.id
+            WHERE cd.dat_san_id = ?
+        ");
+        $svcStmt->execute([$bookingId]);
+        $bookedServices = $svcStmt->fetchAll();
+    } catch (Throwable $se2) {
+        $bookedServices = [];
+    }
+}
 
 // Tính thời lượng đá bóng
 $calcTime = calculatePitchPrice($booking['gia_theo_gio'], $booking['gio_bat_dau'], $booking['gio_ket_thuc']);
@@ -158,15 +176,19 @@ require_once __DIR__ . '/../includes/header.php';
                             </tr>
                             <?php if (!empty($bookedServices)): ?>
                                 <?php foreach ($bookedServices as $svc): 
-                                    $itemSubtotal = (float)$svc['don_gia'] * (int)$svc['so_luong'];
+                                    $svcName = !empty($svc['ten_dich_vu_hien_thi']) ? $svc['ten_dich_vu_hien_thi'] : (!empty($svc['ten_dich_vu']) ? $svc['ten_dich_vu'] : 'Dịch vụ kèm theo');
+                                    $svcUnit = !empty($svc['don_vi_tinh_hien_thi']) ? $svc['don_vi_tinh_hien_thi'] : (!empty($svc['don_vi_tinh']) ? $svc['don_vi_tinh'] : 'Phần');
+                                    $unitPrice = (float)($svc['don_gia'] ?? 0);
+                                    $qty = (int)($svc['so_luong'] ?? 1);
+                                    $itemSubtotal = isset($svc['thanh_tien']) && (float)$svc['thanh_tien'] > 0 ? (float)$svc['thanh_tien'] : ($unitPrice * $qty);
                                 ?>
                                     <tr>
                                         <td>
-                                            <span>Dịch vụ: <?php echo e($svc['ten_dich_vu']); ?></span>
-                                            <small class="text-muted d-block">ĐVT: <?php echo e($svc['don_vi_tinh']); ?></small>
+                                            <span>Dịch vụ: <?php echo e($svcName); ?></span>
+                                            <small class="text-muted d-block">ĐVT: <?php echo e($svcUnit); ?></small>
                                         </td>
-                                        <td class="text-center"><?php echo (int)$svc['so_luong']; ?></td>
-                                        <td class="text-end"><?php echo formatCurrency($svc['don_gia']); ?></td>
+                                        <td class="text-center"><?php echo $qty; ?></td>
+                                        <td class="text-end"><?php echo formatCurrency($unitPrice); ?></td>
                                         <td class="text-end fw-semibold"><?php echo formatCurrency($itemSubtotal); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
